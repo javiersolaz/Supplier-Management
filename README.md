@@ -1,65 +1,77 @@
 # SP-Berner Supplier Management
 
-Aplicación web progresiva local para registrar proveedores, contactos, visitas, evaluaciones y, desde esta versión, fotografías y documentos. Se mantiene como aplicación estática sin dependencias de servicios externos; la base de datos usa IndexedDB nativo (no Dexie).
+Aplicación web progresiva local para registrar proveedores industriales, sus contactos, visitas y evaluaciones, y generar informes PDF individuales. No utiliza bibliotecas externas ni servicios remotos para estas funciones.
 
-## Funciones disponibles
+## Cambios de esta versión
 
-- Proveedores, contactos y múltiples visitas independientes.
-- Formularios de evaluación común y especializados, puntuación ponderada, requisitos y datos comerciales.
-- Fotos y documentos guardados como `Blob` en la nueva tienda `attachments` de IndexedDB.
-- Una misma relación de archivo permite consultarlo desde la ficha del proveedor y desde su visita asociada, sin crear copias.
-- Captura con cámara donde lo permita el navegador y selector de imágenes/documentos como alternativa.
-- Galería con miniaturas, vista ampliada, navegación, filtros por visita, edición de título/descripción/sección y eliminación confirmada.
-- Listado documental con búsqueda, nombre y tamaño, edición de metadatos, apertura de PDF compatible y descarga de archivos.
-- Clasificación de fotos generales, técnicas o de visita; y documentos comerciales, técnicos, certificados/referencias u otros. La descripción es texto libre.
-- Indicador de escritura por archivo. El mensaje de guardado solo aparece después de que la transacción de IndexedDB finaliza.
-- Diseño responsive y controles táctiles para escritorio, tablet y móvil.
+- Retira de la interfaz la carga de fotografías/documentos, la galería y la gestión de adjuntos.
+- No borra el almacén heredado `attachments` ni consulta, modifica o elimina sus registros. Se conserva la base y su número de versión para evitar una migración destructiva.
+- Añade generación local de informes PDF individuales desde la ficha del proveedor.
+- Añade el campo “Opinión del ingeniero” a la pestaña de puntuación; su texto se incluye tal cual en el informe.
+- El Service Worker cachea también el generador PDF local y usa una nueva versión de caché.
+- Los errores de lectura, escritura y eliminación de IndexedDB muestran estado y mensaje al usuario.
 
-## Incorporar archivos
+Esta copia usa IndexedDB nativo (`spberner-suppliers`, versión 2), no Dexie. Las tiendas de proveedores, contactos, visitas, evaluaciones y configuración se mantienen intactas. No se reinicia ni se limpia la base de datos.
 
-1. Abre una ficha de proveedor. En “Fotografías y documentos”, selecciona **Tomar fotografía**, **Añadir fotografías** o **Adjuntar documentos**.
-2. Dentro de una visita, usa sus propios botones de archivos para relacionarlos con esa visita. La vista de visita muestra solo sus archivos asociados.
-3. Elige una clasificación; la sección técnica y descripción son opcionales. Para seleccionar varios archivos, utiliza el selector de galería/documentos si el navegador lo admite.
-4. El archivo se guarda en el dispositivo y su nombre original se conserva. Usa **Gestionar archivos** para buscar, ampliar, editar o eliminar.
+## Uso de la aplicación
 
-La opción “Tomar fotografía” utiliza `capture="environment"`. Según navegador/dispositivo puede abrir la cámara, el selector del sistema o no estar disponible; en ese caso, **Añadir fotografías** abre la galería/selector. iOS/iPadOS, Android y Windows controlan esta experiencia, y no se ha certificado en dispositivos físicos de cada sistema.
+Abre la ficha de un proveedor. Desde allí puedes seguir editando proveedor, visitas y evaluación, o pulsar **Generar informe PDF**. El archivo se construye en el dispositivo y se descarga como `Informe_<proveedor>_<fecha>.pdf`.
 
-### Formatos y almacenamiento
+El informe solo incluye datos que existen. Puede incluir:
 
-El selector de fotos usa `image/*`. Para documentos se admiten PDF, Excel, Word, PowerPoint, JPEG, PNG, WebP y otros formatos que exponga el selector del sistema. Los tipos que el navegador no puede previsualizar se descargan para abrirlos con una aplicación compatible. Los PDF se pueden abrir en el visor del navegador.
+- Identificador, empresa, ubicación, especialidades, estado, web, contactos, alta y observaciones generales.
+- Cada visita ordenada por fecha, con lugar, participantes, objetivo, notas y acuerdos.
+- Respuestas comunes y técnicas, puntuaciones y ponderaciones, resultado ponderado, cobertura, requisitos obligatorios y observaciones.
+- Precio/moneda, alcance, pagos, Incoterm, plazos, garantía, costes y observaciones comerciales.
+- La opinión del ingeniero, respetando el texto guardado.
 
-Cada archivo tiene un límite de 100 MB en esta versión; se muestra un aviso desde 25 MB y se consulta la cuota informada por el navegador. Una cuota estimada no garantiza que la escritura vaya a caber: IndexedDB puede rechazar la operación y se comunica el error. Los archivos se incorporan uno a uno; si se interrumpe una selección múltiple, los archivos cuyas transacciones finalizaron siguen guardados y se pueden volver a seleccionar los restantes.
+No genera conclusiones ni recomendaciones automáticas. Los apartados opcionales sin contenido se omiten. Las páginas son A4 con encabezado SP-Berner y numeración.
 
-No se generan versiones comprimidas ni se altera el original. Así se evita pérdida de detalle y duplicación mientras se define una estrategia de miniaturas. Las miniaturas se crean al mostrarlas y no se almacenan como otro archivo.
+El PDF usa las fuentes PDF estándar con codificación WinAnsi. Los acentos españoles y los caracteres occidentales habituales están incluidos. Los caracteres CJK u otros glifos fuera de WinAnsi pueden aparecer como `?`; la aplicación aún no incorpora fuentes CJK embebidas.
 
-## Ejecución y despliegue
+## Funcionamiento offline
 
-No abras `index.html` directamente. Sirve esta carpeta en HTTPS para instalar/usar la PWA, o desde `localhost` en desarrollo. No requiere build ni paquetes externos. Publica juntos `index.html`, `app.js`, `styles.css`, `manifest.webmanifest`, `icon.svg`, `sw.js` y conserva la subruta publicada al configurar `start_url`/`scope`.
+El Service Worker almacena la carcasa de la aplicación y `pdf-report.js`. Tras publicar en HTTPS, abre la página con conexión al menos una vez y espera a que el navegador instale la nueva caché; luego puede abrirse desde la PWA sin red. En modo local, usa `localhost` para que IndexedDB y Service Worker funcionen como contexto seguro. No abras `index.html` con `file://`.
 
-Después de publicar una actualización, abre la aplicación una vez con conexión para que el Service Worker instale la nueva carcasa y `attachments` siga en la misma base del origen. La migración de esquema es aditiva: la base sube de versión 1 a 2 y añade la tienda `attachments`; no recrea ni limpia proveedores, contactos, visitas, evaluaciones o configuración.
+Proveedores, visitas y evaluaciones se guardan en IndexedDB del navegador. Al cerrar y volver a abrir la app, los datos permanecen en el mismo perfil y origen. Cada ingeniero conserva su base local independiente. No hay sincronización entre dispositivos.
 
-## Privacidad, persistencia y copias
+Si borrar datos del sitio o desinstalar el navegador, la base local podría perderse. La aplicación no implementa todavía copia de seguridad/importación; conserva un respaldo externo de la información crítica.
 
-Los archivos permanecen en IndexedDB del origen actual y no se envían a terceros. Deben estar disponibles offline una vez incorporados. Borrar datos del sitio, desinstalar el navegador o perder el dispositivo puede eliminar información. La persistencia solicitada por la aplicación depende del navegador. La aplicación todavía no incluye exportación/importación de copias de seguridad: conserva además una copia externa de los originales y no uses este dispositivo como única copia de los documentos importantes.
+## Ejecutar y publicar
 
-Los adjuntos nunca se ejecutan desde la aplicación. Los documentos distintos de PDF se descargan en lugar de abrirse dentro de una pestaña; las imágenes solo se muestran como imagen en la galería.
+No requiere instalar paquetes ni compilar. Sirve todos los archivos de esta carpeta desde un servidor HTTPS estático. Para desarrollo puede usarse `localhost`. Publica juntos:
 
-## Verificación de esta entrega
+- `index.html`, `app.js`, `pdf-report.js`, `styles.css`, `sw.js`, `manifest.webmanifest` e `icon.svg`.
 
-- Pasó `node --check app.js` y `node --check sw.js`.
-- Revisada la migración aditiva del esquema (v1 → v2) y la ruta de guardado: cada Blob espera confirmación de la transacción IndexedDB antes de mostrarse como guardado.
-- Revisada la lógica de relaciones: proveedor obligatorio, visita opcional; la vista de visita filtra por `visitId` sin copiar el Blob.
-- No se pudo ejecutar en este turno una carga/lectura real de fotos y PDF, reinicio, actualización offline ni pruebas táctiles en tablet/teléfono. No se declara superada la persistencia funcional en dispositivos ni la compatibilidad física.
+La instalación inicial de la PWA requiere HTTPS y conexión. No se utiliza red para generar el PDF ni para trabajar con los datos una vez que la carcasa está en caché.
 
-### Comprobación manual recomendada en cada navegador
+## Pruebas realizadas
 
-1. Adjunta varias fotos al proveedor y una foto/PDF desde una visita; confirma título, descripción, tamaño y clasificación.
-2. Revisa miniaturas y navegación; filtra la ficha por visita y confirma que la vista de visita no enseña adjuntos de otra visita.
-3. Cambia metadatos, vuelve a abrir el archivo y comprueba que el original sigue descargándose.
-4. Cierra y abre la app; repite tras actualizar la PWA y en modo avión.
-5. Elimina un archivo y confirma el diálogo; comprueba que otros archivos y datos de proveedor/evaluación permanecen.
-6. Prueba cámara y selector en Windows 11, Chrome Android y Safari iPadOS/iOS; anota los límites propios de cada navegador.
+Automatizadas, ejecutadas en Node.js:
 
-## Funciones aún pendientes
+- `node --check app.js`, `node --check pdf-report.js` y `node --check sw.js`.
+- `node tests/pdf-report.test.js`: generación del PDF con proveedor y varias visitas, campos opcionales vacíos, preservación de la opinión del ingeniero y paginación extensa.
 
-No incluye tareas/recordatorios, informes PDF, exportación Excel, copias ZIP/importación, sincronización, ni informes diarios/globales. No se añadieron porque no forman parte de este paso.
+PDF:
+
+- Generé un PDF de muestra con datos en español; Poppler lo reconoció como PDF 1.4, A4 y una página, y lo rendericé para inspección visual. Revisé que encabezado, apartados, puntuación y pie de página quedaran visibles sin cortes.
+
+Aún pendientes en navegador/dispositivos físicos:
+
+- Crear/editar/eliminar proveedor, visita y evaluación offline, cerrar/reabrir y recargar en modo avión.
+- Abrir la PWA instalada sin conexión en Windows, Android e iOS/iPadOS.
+- Descargar/abrir un informe PDF desde cada sistema y probar registros incompletos o con muchas páginas.
+- Confirmar en el origen publicado que su DB name/esquema coincide con esta copia. El workspace disponible no incluye el repositorio Git ni permite verificar la base de datos de la aplicación ya instalada.
+
+## Guía de pruebas manuales
+
+1. Con la app cargada por HTTPS, crea un proveedor con datos parciales y guárdalo.
+2. Registra dos visitas y edita una; revisa sus datos en la ficha.
+3. Completa una respuesta común, un dato técnico, una puntuación, un requisito y la opinión del ingeniero; cambia de pestaña y vuelve para comprobar el guardado.
+4. Genera el PDF y confirma que incluye ambas visitas y la opinión sin cambiar el texto.
+5. Activa modo avión, cierra completamente y vuelve a abrir la PWA. Busca el proveedor y genera de nuevo su PDF.
+6. Edita y elimina un registro de prueba en modo avión; recarga y comprueba el resultado.
+7. Repite con un proveedor incompleto y con uno que tenga muchas notas para comprobar omisión de apartados y saltos de página.
+8. Realiza las comprobaciones en el navegador/dispositivo objetivo: Chrome/Edge en Windows, Chrome en Android y Safari en iOS/iPadOS.
+
+No se han ejecutado pruebas en los dispositivos físicos del usuario ni se afirma su compatibilidad offline hasta completar estos pasos.
