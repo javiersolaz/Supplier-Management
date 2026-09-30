@@ -1,77 +1,30 @@
 # SP-Berner Supplier Management
 
-Aplicación web progresiva local para registrar proveedores industriales, sus contactos, visitas y evaluaciones, y generar informes PDF individuales. No utiliza bibliotecas externas ni servicios remotos para estas funciones.
+PWA local para registrar proveedores de automatización industrial, contactos e historial de visitas. Mantiene el diseño y la arquitectura existentes (HTML/CSS/JavaScript, IndexedDB nativo y Service Worker), sin dependencias externas, sincronización ni conexión necesaria para generar los informes.
 
-## Cambios de esta versión
+## Estructura funcional
 
-- Retira de la interfaz la carga de fotografías/documentos, la galería y la gestión de adjuntos.
-- No borra el almacén heredado `attachments` ni consulta, modifica o elimina sus registros. Se conserva la base y su número de versión para evitar una migración destructiva.
-- Añade generación local de informes PDF individuales desde la ficha del proveedor.
-- Añade el campo “Opinión del ingeniero” a la pestaña de puntuación; su texto se incluye tal cual en el informe.
-- El Service Worker cachea también el generador PDF local y usa una nueva versión de caché.
-- Los errores de lectura, escritura y eliminación de IndexedDB muestran estado y mensaje al usuario.
+- **Ficha de empresa:** identificador, nombre, ubicación, dirección, web, especialidades predefinidas o personalizadas, contactos y observaciones generales.
+- **Visitas:** cada visita es un registro independiente con fecha, lugar, participantes, contactos asistentes, observaciones, respuestas generales, evaluación de nueve criterios (escala 1–5), comentarios por criterio, requisitos generales, información comercial y opinión del ingeniero.
+- **Informe:** desde la ficha del proveedor se genera un PDF local con los datos generales y el historial de visitas. No contiene evaluación técnica específica por proceso o proyecto.
+- **Sin conexión:** el Service Worker incluye `data-migration.js`, la aplicación, estilos y generador PDF en la caché base.
 
-Esta copia usa IndexedDB nativo (`spberner-suppliers`, versión 2), no Dexie. Las tiendas de proveedores, contactos, visitas, evaluaciones y configuración se mantienen intactas. No se reinicia ni se limpia la base de datos.
+## Conservación y migración local
 
-## Uso de la aplicación
+La base sigue llamándose `spberner-suppliers`; IndexedDB pasa de versión 2 a 3. La migración copia cada evaluación antigua a la visita más reciente de su proveedor. Si aún no tiene visitas, crea una visita histórica con la fecha de la evaluación. La copia contiene respuestas generales, puntuaciones que se pueden asociar a criterios generales, requisitos, información comercial y opinión del ingeniero. El score del criterio técnico específico de la versión anterior no se reutiliza como evaluación general.
 
-Abre la ficha de un proveedor. Desde allí puedes seguir editando proveedor, visitas y evaluación, o pulsar **Generar informe PDF**. El archivo se construye en el dispositivo y se descarga como `Informe_<proveedor>_<fecha>.pdf`.
+El almacén `evaluations` antiguo y sus registros se conservan sin modificaciones como respaldo de migración. Los datos técnicos especializados antiguos también quedan dentro de `generalEvaluation.legacyTechnical` de la visita migrada, sin controles para consultarlos o puntuarlos ni inclusión en el PDF. El almacén heredado de adjuntos también se conserva; esta interfaz no lo usa. La migración no elimina ni vacía proveedores, contactos, visitas, evaluaciones, adjuntos ni configuración.
 
-El informe solo incluye datos que existen. Puede incluir:
+Esta copia usa IndexedDB nativo, no Dexie. La aplicación instalada previamente solo podrá migrarse automáticamente si coincide en origen, nombre y esquema de base de datos. El workspace entregado no incluye el repositorio publicado ni permite confirmar esos datos de la instalación del usuario.
 
-- Identificador, empresa, ubicación, especialidades, estado, web, contactos, alta y observaciones generales.
-- Cada visita ordenada por fecha, con lugar, participantes, objetivo, notas y acuerdos.
-- Respuestas comunes y técnicas, puntuaciones y ponderaciones, resultado ponderado, cobertura, requisitos obligatorios y observaciones.
-- Precio/moneda, alcance, pagos, Incoterm, plazos, garantía, costes y observaciones comerciales.
-- La opinión del ingeniero, respetando el texto guardado.
+## Pruebas
 
-No genera conclusiones ni recomendaciones automáticas. Los apartados opcionales sin contenido se omiten. Las páginas son A4 con encabezado SP-Berner y numeración.
+Ejecuta `node tests/pdf-report.test.js`. Las pruebas automatizadas cubren la estructura del PDF por visita, la ausencia de apartados técnicos heredados, la paginación, la asignación de la evaluación antigua a la visita más reciente y la creación de una visita histórica cuando no existía ninguna.
 
-El PDF usa las fuentes PDF estándar con codificación WinAnsi. Los acentos españoles y los caracteres occidentales habituales están incluidos. Los caracteres CJK u otros glifos fuera de WinAnsi pueden aparecer como `?`; la aplicación aún no incorpora fuentes CJK embebidas.
+También se debe probar en navegador: crear/editar proveedor; registrar y editar varias visitas; comprobar conservación de sus puntuaciones, requisitos, datos comerciales y opinión al reabrir; actualizar la PWA a través del Service Worker y probarla sin conexión; generar el PDF. Esas pruebas de navegador, persistencia real e instalación en tablet no se consideran ejecutadas en esta entrega.
 
-## Funcionamiento offline
+## Publicación
 
-El Service Worker almacena la carcasa de la aplicación y `pdf-report.js`. Tras publicar en HTTPS, abre la página con conexión al menos una vez y espera a que el navegador instale la nueva caché; luego puede abrirse desde la PWA sin red. En modo local, usa `localhost` para que IndexedDB y Service Worker funcionen como contexto seguro. No abras `index.html` con `file://`.
+Publica juntos `index.html`, `app.js`, `data-migration.js`, `pdf-report.js`, `styles.css`, `sw.js`, `manifest.webmanifest` e `icon.svg`. La primera apertura requiere HTTPS y conexión para instalar la PWA. Después, la carcasa puede abrirse offline. Los datos permanecen en el perfil y origen del navegador; borrar los datos del sitio puede eliminarlos. No hay copia de seguridad, importación, fusión ni sincronización implementadas.
 
-Proveedores, visitas y evaluaciones se guardan en IndexedDB del navegador. Al cerrar y volver a abrir la app, los datos permanecen en el mismo perfil y origen. Cada ingeniero conserva su base local independiente. No hay sincronización entre dispositivos.
-
-Si borrar datos del sitio o desinstalar el navegador, la base local podría perderse. La aplicación no implementa todavía copia de seguridad/importación; conserva un respaldo externo de la información crítica.
-
-## Ejecutar y publicar
-
-No requiere instalar paquetes ni compilar. Sirve todos los archivos de esta carpeta desde un servidor HTTPS estático. Para desarrollo puede usarse `localhost`. Publica juntos:
-
-- `index.html`, `app.js`, `pdf-report.js`, `styles.css`, `sw.js`, `manifest.webmanifest` e `icon.svg`.
-
-La instalación inicial de la PWA requiere HTTPS y conexión. No se utiliza red para generar el PDF ni para trabajar con los datos una vez que la carcasa está en caché.
-
-## Pruebas realizadas
-
-Automatizadas, ejecutadas en Node.js:
-
-- `node --check app.js`, `node --check pdf-report.js` y `node --check sw.js`.
-- `node tests/pdf-report.test.js`: generación del PDF con proveedor y varias visitas, campos opcionales vacíos, preservación de la opinión del ingeniero y paginación extensa.
-
-PDF:
-
-- Generé un PDF de muestra con datos en español; Poppler lo reconoció como PDF 1.4, A4 y una página, y lo rendericé para inspección visual. Revisé que encabezado, apartados, puntuación y pie de página quedaran visibles sin cortes.
-
-Aún pendientes en navegador/dispositivos físicos:
-
-- Crear/editar/eliminar proveedor, visita y evaluación offline, cerrar/reabrir y recargar en modo avión.
-- Abrir la PWA instalada sin conexión en Windows, Android e iOS/iPadOS.
-- Descargar/abrir un informe PDF desde cada sistema y probar registros incompletos o con muchas páginas.
-- Confirmar en el origen publicado que su DB name/esquema coincide con esta copia. El workspace disponible no incluye el repositorio Git ni permite verificar la base de datos de la aplicación ya instalada.
-
-## Guía de pruebas manuales
-
-1. Con la app cargada por HTTPS, crea un proveedor con datos parciales y guárdalo.
-2. Registra dos visitas y edita una; revisa sus datos en la ficha.
-3. Completa una respuesta común, un dato técnico, una puntuación, un requisito y la opinión del ingeniero; cambia de pestaña y vuelve para comprobar el guardado.
-4. Genera el PDF y confirma que incluye ambas visitas y la opinión sin cambiar el texto.
-5. Activa modo avión, cierra completamente y vuelve a abrir la PWA. Busca el proveedor y genera de nuevo su PDF.
-6. Edita y elimina un registro de prueba en modo avión; recarga y comprueba el resultado.
-7. Repite con un proveedor incompleto y con uno que tenga muchas notas para comprobar omisión de apartados y saltos de página.
-8. Realiza las comprobaciones en el navegador/dispositivo objetivo: Chrome/Edge en Windows, Chrome en Android y Safari en iOS/iPadOS.
-
-No se han ejecutado pruebas en los dispositivos físicos del usuario ni se afirma su compatibilidad offline hasta completar estos pasos.
+El generador PDF usa las fuentes estándar con codificación WinAnsi. Los caracteres españoles habituales se incluyen; glifos fuera de WinAnsi pueden sustituirse.
