@@ -1,60 +1,65 @@
 # SP-Berner Supplier Management
 
-Aplicación web progresiva local para registrar proveedores, contactos, visitas y evaluaciones durante visitas y ferias. Esta entrega cubre las fases 1–3 del documento de requisitos.
+Aplicación web progresiva local para registrar proveedores, contactos, visitas, evaluaciones y, desde esta versión, fotografías y documentos. Se mantiene como aplicación estática sin dependencias de servicios externos; la base de datos usa IndexedDB nativo (no Dexie).
 
-## Qué incluye
+## Funciones disponibles
 
-- Interfaz adaptable a escritorio, tablet y móvil; navegación táctil y menú compacto.
-- Proveedores con especialidades, estado, datos generales y contacto principal.
-- Varios contactos por empresa y visitas/reuniones independientes con notas y acuerdos.
-- Evaluación común por secciones, preguntas técnicas por especialidad, notas ponderadas de 1 a 5, requisitos obligatorios y condiciones comerciales.
-- Guardado en IndexedDB del navegador y solicitud automática/manual de almacenamiento persistente cuando el navegador lo permite.
-- Service Worker y manifiesto para instalación y apertura offline después de la primera visita mientras se sirve desde HTTPS/localhost.
+- Proveedores, contactos y múltiples visitas independientes.
+- Formularios de evaluación común y especializados, puntuación ponderada, requisitos y datos comerciales.
+- Fotos y documentos guardados como `Blob` en la nueva tienda `attachments` de IndexedDB.
+- Una misma relación de archivo permite consultarlo desde la ficha del proveedor y desde su visita asociada, sin crear copias.
+- Captura con cámara donde lo permita el navegador y selector de imágenes/documentos como alternativa.
+- Galería con miniaturas, vista ampliada, navegación, filtros por visita, edición de título/descripción/sección y eliminación confirmada.
+- Listado documental con búsqueda, nombre y tamaño, edición de metadatos, apertura de PDF compatible y descarga de archivos.
+- Clasificación de fotos generales, técnicas o de visita; y documentos comerciales, técnicos, certificados/referencias u otros. La descripción es texto libre.
+- Indicador de escritura por archivo. El mensaje de guardado solo aparece después de que la transacción de IndexedDB finaliza.
+- Diseño responsive y controles táctiles para escritorio, tablet y móvil.
 
-Se utiliza JavaScript del navegador y APIs nativas (IndexedDB, Service Worker y almacenamiento web), sin paquetes externos. Esto reduce dependencias de red y permite almacenar valores, pero todavía no incluye el esquema de exportación ZIP, informes PDF, Excel, adjuntos, tareas, comparativas ni formularios de todas las subespecialidades descritas en el prompt. Esas funciones quedan para fases posteriores. Los criterios actuales suman 100% por defecto y se pueden ajustar en Ajustes.
+## Incorporar archivos
 
-## Ejecutar localmente
+1. Abre una ficha de proveedor. En “Fotografías y documentos”, selecciona **Tomar fotografía**, **Añadir fotografías** o **Adjuntar documentos**.
+2. Dentro de una visita, usa sus propios botones de archivos para relacionarlos con esa visita. La vista de visita muestra solo sus archivos asociados.
+3. Elige una clasificación; la sección técnica y descripción son opcionales. Para seleccionar varios archivos, utiliza el selector de galería/documentos si el navegador lo admite.
+4. El archivo se guarda en el dispositivo y su nombre original se conserva. Usa **Gestionar archivos** para buscar, ampliar, editar o eliminar.
 
-No abras `index.html` directamente como archivo. IndexedDB puede funcionar con `file:`, pero el Service Worker no; utiliza un servidor HTTP local.
+La opción “Tomar fotografía” utiliza `capture="environment"`. Según navegador/dispositivo puede abrir la cámara, el selector del sistema o no estar disponible; en ese caso, **Añadir fotografías** abre la galería/selector. iOS/iPadOS, Android y Windows controlan esta experiencia, y no se ha certificado en dispositivos físicos de cada sistema.
 
-Con Node.js instalado, desde esta carpeta inicia un servidor estático. Por ejemplo, con `npx serve .` (requiere que el paquete esté disponible) o con cualquier servidor local estático. Abre la dirección que indique en Chrome o Edge. `localhost` se considera un contexto seguro para desarrollo.
+### Formatos y almacenamiento
 
-No hay un paso de build ni instalación de paquetes en esta primera versión.
+El selector de fotos usa `image/*`. Para documentos se admiten PDF, Excel, Word, PowerPoint, JPEG, PNG, WebP y otros formatos que exponga el selector del sistema. Los tipos que el navegador no puede previsualizar se descargan para abrirlos con una aplicación compatible. Los PDF se pueden abrir en el visor del navegador.
 
-## Despliegue HTTPS
+Cada archivo tiene un límite de 100 MB en esta versión; se muestra un aviso desde 25 MB y se consulta la cuota informada por el navegador. Una cuota estimada no garantiza que la escritura vaya a caber: IndexedDB puede rechazar la operación y se comunica el error. Los archivos se incorporan uno a uno; si se interrumpe una selección múltiple, los archivos cuyas transacciones finalizaron siguen guardados y se pueden volver a seleccionar los restantes.
 
-Publica el contenido de esta carpeta en el directorio raíz de un hosting estático con HTTPS (por ejemplo, Pages). Mantén `index.html`, `app.js`, `styles.css`, `manifest.webmanifest`, `icon.svg` y `sw.js` juntos. Si publicas bajo una subruta, revisa `start_url`, `scope` y `CORE` en `sw.js` para que coincidan con la subruta. Entra una vez con conexión y espera a que cargue antes de usar la app offline.
+No se generan versiones comprimidas ni se altera el original. Así se evita pérdida de detalle y duplicación mientras se define una estrategia de miniaturas. Las miniaturas se crean al mostrarlas y no se almacenan como otro archivo.
 
-## Instalar
+## Ejecución y despliegue
 
-- **Windows (Chrome/Edge):** abre la página HTTPS y usa el botón de instalación que ofrece el navegador en la barra de direcciones o menú.
-- **Android (Chrome):** abre la página HTTPS, menú del navegador y “Instalar aplicación” o “Añadir a pantalla de inicio”.
-- **iPhone/iPad (Safari):** abre la página HTTPS, Compartir y “Añadir a pantalla de inicio”. La instalación y algunas capacidades dependen de la versión de iOS/iPadOS.
+No abras `index.html` directamente. Sirve esta carpeta en HTTPS para instalar/usar la PWA, o desde `localhost` en desarrollo. No requiere build ni paquetes externos. Publica juntos `index.html`, `app.js`, `styles.css`, `manifest.webmanifest`, `icon.svg`, `sw.js` y conserva la subruta publicada al configurar `start_url`/`scope`.
 
-La primera instalación requiere visitar la web desde HTTPS y un navegador compatible. No se puede instalar por primera vez estando offline.
+Después de publicar una actualización, abre la aplicación una vez con conexión para que el Service Worker instale la nueva carcasa y `attachments` siga en la misma base del origen. La migración de esquema es aditiva: la base sube de versión 1 a 2 y añade la tienda `attachments`; no recrea ni limpia proveedores, contactos, visitas, evaluaciones o configuración.
 
-## Uso
+## Privacidad, persistencia y copias
 
-1. Crea una ficha básica del proveedor; puedes completarla más tarde.
-2. Abre la ficha para añadir contactos, registrar cada reunión por separado o iniciar la evaluación.
-3. En la evaluación, cambia de pestaña para completar preguntas comunes y técnicas, la puntuación, requisitos o condiciones comerciales. El formulario guarda cambios automáticamente en IndexedDB.
-4. Para criterios de evaluación, ajusta ponderaciones en Ajustes. Su suma debería ser 100%; el porcentaje de cobertura solo incluye criterios evaluados.
+Los archivos permanecen en IndexedDB del origen actual y no se envían a terceros. Deben estar disponibles offline una vez incorporados. Borrar datos del sitio, desinstalar el navegador o perder el dispositivo puede eliminar información. La persistencia solicitada por la aplicación depende del navegador. La aplicación todavía no incluye exportación/importación de copias de seguridad: conserva además una copia externa de los originales y no uses este dispositivo como única copia de los documentos importantes.
 
-El estado del proveedor se edita manualmente; la puntuación no cambia dicho estado.
+Los adjuntos nunca se ejecutan desde la aplicación. Los documentos distintos de PDF se descargan en lugar de abrirse dentro de una pestaña; las imágenes solo se muestran como imagen en la galería.
 
-## Datos y copias de seguridad
+## Verificación de esta entrega
 
-Los registros se guardan en el perfil local del navegador y no se transmiten a servidores. Borrar los datos del sitio, desinstalar el navegador o perder el dispositivo puede borrar los registros. Ajustes muestra la cuota estimada y permite pedir almacenamiento persistente, pero la decisión final depende del navegador y del sistema.
+- Pasó `node --check app.js` y `node --check sw.js`.
+- Revisada la migración aditiva del esquema (v1 → v2) y la ruta de guardado: cada Blob espera confirmación de la transacción IndexedDB antes de mostrarse como guardado.
+- Revisada la lógica de relaciones: proveedor obligatorio, visita opcional; la vista de visita filtra por `visitId` sin copiar el Blob.
+- No se pudo ejecutar en este turno una carga/lectura real de fotos y PDF, reinicio, actualización offline ni pruebas táctiles en tablet/teléfono. No se declara superada la persistencia funcional en dispositivos ni la compatibilidad física.
 
-**Esta fase aún no incorpora exportación/importación de copias de seguridad.** No la uses como único repositorio de información importante hasta que esa función se implemente y se pruebe. No hay cifrado local implementado.
+### Comprobación manual recomendada en cada navegador
 
-## Comprobaciones y límites
+1. Adjunta varias fotos al proveedor y una foto/PDF desde una visita; confirma título, descripción, tamaño y clasificación.
+2. Revisa miniaturas y navegación; filtra la ficha por visita y confirma que la vista de visita no enseña adjuntos de otra visita.
+3. Cambia metadatos, vuelve a abrir el archivo y comprueba que el original sigue descargándose.
+4. Cierra y abre la app; repite tras actualizar la PWA y en modo avión.
+5. Elimina un archivo y confirma el diálogo; comprueba que otros archivos y datos de proveedor/evaluación permanecen.
+6. Prueba cámara y selector en Windows 11, Chrome Android y Safari iPadOS/iOS; anota los límites propios de cada navegador.
 
-- Revisado: sintaxis de `app.js` y `sw.js` con `node --check`.
-- El almacenamiento real requiere abrir la app en Chrome/Edge/Safari o Firefox; no se considera verificado en este entorno hasta completar una prueba de crear, cerrar y reabrir los datos en cada sistema objetivo.
-- El Service Worker cachea la carcasa de la aplicación, no envía solicitudes a terceros y deja las funcionalidades de datos dentro de IndexedDB.
-- La cuota, persistencia, cámara/archivos y opción de instalar varían según navegador, dispositivo y espacio libre.
+## Funciones aún pendientes
 
-## Próximas fases
-
-La fase 4 añadirá adjuntos, seguimiento e historial más completo. La fase 5 añadirá informes y exportación Excel. La fase 6 añadirá copias ZIP e importación y pruebas offline. La fase 7 documentará las comprobaciones de compatibilidad y preparación para uso real.
+No incluye tareas/recordatorios, informes PDF, exportación Excel, copias ZIP/importación, sincronización, ni informes diarios/globales. No se añadieron porque no forman parte de este paso.
