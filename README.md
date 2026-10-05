@@ -5,8 +5,8 @@ PWA local para registrar proveedores de automatización industrial, contactos e 
 ## Estructura funcional
 
 - **Ficha de empresa:** identificador, nombre, ubicación, dirección, web, especialidades predefinidas o personalizadas, contactos y observaciones generales.
-- **Visitas:** cada visita es un registro independiente con fecha, lugar, participantes, contactos asistentes, observaciones, respuestas generales, evaluación de nueve criterios (escala 1–5), comentarios por criterio, requisitos generales, información comercial y opinión del ingeniero.
-- **Informe:** desde la ficha del proveedor se genera un PDF local con los datos generales y el historial de visitas. No contiene evaluación técnica específica por proceso o proyecto.
+- **Visitas:** cada registro conserva la reunión, las capacidades observadas, un comentario por apartado y los datos comerciales. La puntuación de nueve criterios, requisitos y opinión del ingeniero se completan después con **Evaluar visita** desde el historial; todo queda asociado a esa visita.
+- **Informe:** desde la ficha del proveedor se genera un PDF local con los datos generales y el historial, incluida la evaluación posterior de cada visita. No incluye evaluación técnica específica por proceso o proyecto.
 - **Sin conexión:** el Service Worker incluye `data-migration.js`, la aplicación, estilos y generador PDF en la caché base.
 
 ## Conservación y migración local
@@ -19,7 +19,7 @@ Esta copia usa IndexedDB nativo, no Dexie. La aplicación instalada previamente 
 
 ## Pruebas
 
-Ejecuta `node tests/pdf-report.test.js`. Las pruebas automatizadas cubren la estructura del PDF por visita, la ausencia de apartados técnicos heredados, la paginación, la asignación de la evaluación antigua a la visita más reciente y la creación de una visita histórica cuando no existía ninguna.
+Ejecuta `node tests/pdf-report.test.js`. Las seis pruebas automatizadas cubren la estructura del PDF por visita, la ausencia de apartados técnicos heredados, la paginación, la asignación de evaluaciones antiguas a visitas, la creación de una visita histórica cuando no existía ninguna y la migración de ponderaciones.
 
 También se debe probar en navegador: crear/editar proveedor; registrar y editar varias visitas; comprobar conservación de sus puntuaciones, requisitos, datos comerciales y opinión al reabrir; actualizar la PWA a través del Service Worker y probarla sin conexión; generar el PDF. Esas pruebas de navegador, persistencia real e instalación en tablet no se consideran ejecutadas en esta entrega.
 
