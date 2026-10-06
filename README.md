@@ -5,7 +5,7 @@ PWA local para registrar proveedores de automatización industrial, contactos e 
 ## Estructura funcional
 
 - **Ficha de empresa:** identificador, nombre, ubicación, dirección, web, especialidades predefinidas o personalizadas, contactos y observaciones generales.
-- **Visitas:** cada registro conserva la reunión, las capacidades observadas, un comentario por apartado y los datos comerciales. La puntuación de nueve criterios, requisitos y opinión del ingeniero se completan después con **Evaluar visita** desde el historial; todo queda asociado a esa visita.
+- **Visitas:** cada registro conserva la reunión, las capacidades observadas, un comentario por apartado y los datos comerciales. El formulario ya no pide personas de SP-Berner ni participantes del proveedor; tampoco pregunta por disciplinas de ingeniería propias o gestión de no conformidades. Los valores antiguos, si existen, se conservan. La puntuación de nueve criterios, requisitos y opinión del ingeniero se completan después con **Evaluar visita** desde el historial; todo queda asociado a esa visita.
 - **Informe:** desde la ficha del proveedor se genera un PDF local con los datos generales y el historial, incluida la evaluación posterior de cada visita. No incluye evaluación técnica específica por proceso o proyecto.
 - **Sin conexión:** el Service Worker incluye `data-migration.js`, la aplicación, estilos y generador PDF en la caché base.
 
